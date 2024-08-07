@@ -5,34 +5,37 @@ const io = require('socket.io')(http);
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const CHECKBOX_COUNT = 1000;
+const TOTAL_CHECKBOXES = 1000000;
 
-// Serve static files from the current directory
 app.use(express.static(__dirname));
 
-// Serve index.html for the root route
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Store the state of checkboxes
-const checkboxes = new Array(CHECKBOX_COUNT).fill(false);
+const checkedBoxes = new Set();
 
 io.on('connection', (socket) => {
   console.log('A user connected');
 
-  // Send initial state to the client
-  socket.emit('initial state', checkboxes);
+  socket.emit('initial state', Array.from(checkedBoxes));
 
-  // Handle checkbox updates
   socket.on('checkbox update', (data) => {
     const { index, checked } = data;
-    if (index >= 0 && index < CHECKBOX_COUNT) {
-      checkboxes[index] = checked;
-      
-      // Broadcast the update to all clients
-      io.emit('checkbox updated', data);
+    if (index >= 0 && index < TOTAL_CHECKBOXES) {
+      if (checked) {
+        checkedBoxes.add(index);
+      } else {
+        checkedBoxes.delete(index);
+      }
+      socket.broadcast.emit('checkbox update', data);
     }
+  });
+
+  socket.on('request checkboxes', (range) => {
+    const { start, end } = range;
+    const requestedCheckboxes = Array.from(checkedBoxes).filter(index => index >= start && index < end);
+    socket.emit('checkbox range', requestedCheckboxes);
   });
 
   socket.on('disconnect', () => {
