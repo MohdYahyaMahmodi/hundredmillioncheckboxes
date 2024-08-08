@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" class="dark h-full">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ten Million Checkboxes</title>
+    <title>One Million Checkboxes</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/socket.io/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Merriweather:wght@700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -30,64 +29,9 @@
     <style>
         body {
             font-family: 'Poppins', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
         }
         h1 {
             font-family: 'Merriweather', serif;
-        }
-        #checkbox-container {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            position: relative;
-        }
-        #checkbox-grid {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            padding: 12px;
-        }
-        .checkbox-item {
-            position: absolute;
-            appearance: none;
-            -webkit-appearance: none;
-            background-color: #FFFFFF;
-            border: 2px solid #000000;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .checkbox-item:checked {
-            background-color: #000000;
-        }
-        .checkbox-item:checked::after {
-            content: '✓';
-            font-size: 16px;
-            color: #FFFFFF;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        .highlight {
-            box-shadow: 0 0 0 4px rgba(255, 99, 71, 0.8);
-        }
-        #checkbox-container::-webkit-scrollbar {
-            width: 6px;
-        }
-        #checkbox-container::-webkit-scrollbar-track {
-            background: #3C3C3C;
-            margin-top: 12px;
-            margin-bottom: 12px;
-        }
-        #checkbox-container::-webkit-scrollbar-thumb {
-            background-color: #4CAF50;
-            border-radius: 3px;
-            border: 1px solid #3C3C3C;
         }
         .chat-messages {
             max-height: calc(100vh - 120px);
@@ -98,15 +42,15 @@
         }
     </style>
 </head>
-<body class="bg-dark-100 text-gray-300 flex flex-col min-h-screen">
+<body class="bg-dark-100 text-gray-300 flex flex-col h-screen overflow-hidden">
     <nav class="bg-dark-200 shadow-md p-4">
         <div class="container mx-auto">
             <div class="flex flex-col md:flex-row justify-between items-center">
-                <h1 class="text-2xl md:text-3xl font-bold text-gray-100 mb-2 md:mb-0">Ten Million Checkboxes</h1>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-100 mb-2 md:mb-0">One Million Checkboxes</h1>
                 <div class="flex items-center space-x-4">
                     <div class="text-center md:text-right">
-                        <p class="text-base md:text-lg text-gray-300"><span id="total-count" class="font-bold">0</span> boxes checked</p>
-                        <p class="text-sm text-gray-400">You've checked <span id="user-count" class="font-bold">0</span></p>
+                        <p class="text-base md:text-lg text-gray-300"><span id="totalChecked">0</span> boxes checked</p>
+                        <p class="text-sm text-gray-400">You've checked <span id="userChecked">0</span></p>
                     </div>
                     <div class="relative w-16 h-16">
                         <svg class="w-full h-full" viewBox="0 0 36 36">
@@ -126,7 +70,7 @@
                                 stroke-width="2"
                                 stroke-dasharray="0, 100"
                             />
-                            <text x="18" y="20.35" id="progress-percentage" class="percentage" text-anchor="middle" fill="#fff" font-size="8">0%</text>
+                            <text x="18" y="20.35" class="percentage" text-anchor="middle" fill="#fff" font-size="8">0%</text>
                         </svg>
                     </div>
                 </div>
@@ -134,18 +78,19 @@
         </div>
     </nav>
 
-    <main class="flex-grow flex flex-col p-4 bg-dark-100">
-        <div id="checkbox-container" class="w-full h-full flex-grow bg-dark-200 shadow-lg rounded-lg p-4">
-            <div id="checkbox-grid"></div>
+    <main class="flex-grow flex items-center justify-center p-4 overflow-hidden">
+        <div id="checkbox-container" class="w-[90%] h-full overflow-y-auto bg-dark-200 shadow-lg rounded-lg p-4">
+            <!-- Checkboxes will be dynamically added here -->
         </div>
     </main>
 
     <footer class="bg-dark-200 shadow-md p-2">
         <p class="text-sm text-gray-400 text-center">
-            Made by <a href="https://github.com/mohdmahmodi" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">Mohd Mahmodi</a>
+            Made by <a href="https://github.com/mohdmahmodi" class="text-blue-400 hover:underline">Mohd Mahmodi</a>
         </p>
     </footer>
 
+    <!-- Updated Chat Widget -->
     <div id="chat-widget" class="fixed top-0 left-[-300px] w-[300px] h-screen bg-dark-200 shadow-lg overflow-hidden flex">
         <div class="flex-grow flex flex-col">
             <div class="bg-dark-300 p-2 flex justify-between items-center">
@@ -158,7 +103,15 @@
             </div>
             <div id="chat-content" class="p-2 flex-grow flex flex-col">
                 <div class="chat-messages space-y-2 mb-2 flex-grow overflow-y-auto">
-                    <!-- Chat messages will be dynamically added here -->
+                    <div class="bg-dark-300 p-2 rounded-lg">
+                        <span class="text-blue-400 font-semibold">Alice:</span> Hey everyone! Just checked my 1000th box!
+                    </div>
+                    <div class="bg-dark-300 p-2 rounded-lg">
+                        <span class="text-green-400 font-semibold">Bob:</span> Nice job Alice! I'm at 750 now.
+                    </div>
+                    <div class="bg-dark-300 p-2 rounded-lg">
+                        <span class="text-yellow-400 font-semibold">Charlie:</span> We're making great progress! Keep it up!
+                    </div>
                 </div>
                 <div class="flex mt-auto">
                     <input type="text" id="chat-input" placeholder="Type a message..." class="flex-grow bg-dark-300 text-white p-2 rounded-l-lg focus:outline-none">
@@ -168,17 +121,78 @@
         </div>
     </div>
 
+    <!-- Chat Toggle Tab -->
     <div id="chat-toggle" class="fixed bottom-4 left-4 bg-dark-300 p-2 cursor-pointer rounded-lg shadow-lg">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
         </svg>
     </div>
 
+    <!-- Checkbox Input Search -->
     <div class="fixed bottom-4 right-4 z-10 bg-dark-300 p-2 rounded-lg shadow-lg flex items-center">
-        <input type="number" id="checkbox-search" placeholder="Go to box #" class="w-24 sm:w-32 mr-2 p-2 text-sm border rounded bg-dark-200 text-gray-200 border-gray-600" min="1" max="1000000">
-        <button id="search-button" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 text-sm">Go</button>
+        <input type="number" id="gotoInput" placeholder="Go to box #" class="w-24 sm:w-32 mr-2 p-2 text-sm border rounded bg-dark-200 text-gray-200 border-gray-600">
+        <button id="gotoButton" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 text-sm">Go</button>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // Placeholder for checkbox generation and interaction logic
+        document.getElementById('gotoButton').addEventListener('click', function() {
+            const boxNumber = document.getElementById('gotoInput').value;
+            // Placeholder for scroll logic
+            console.log('Scrolling to box:', boxNumber);
+        });
+
+        // Function to update progress (to be used with socket.io later)
+        function updateProgress(checked, total) {
+            const percentage = (checked / total) * 100;
+            const circle = document.getElementById('progress-circle');
+            const percentageText = document.querySelector('.percentage');
+            const circumference = 2 * Math.PI * 15.9155; // Radius of the circle
+
+            circle.style.strokeDasharray = `${(percentage / 100) * circumference}, ${circumference}`;
+            percentageText.textContent = `${percentage.toFixed(1)}%`;
+
+            document.getElementById('totalChecked').textContent = checked;
+        }
+
+        // Updated Chat widget toggle
+        const chatWidget = document.getElementById('chat-widget');
+        const chatToggle = document.getElementById('chat-toggle');
+        const closeChat = document.getElementById('close-chat');
+        let isChatOpen = false;
+
+        function toggleChat() {
+            isChatOpen = !isChatOpen;
+            chatWidget.style.left = isChatOpen ? '0px' : '-300px';
+            chatToggle.style.display = isChatOpen ? 'none' : 'block';
+        }
+
+        chatToggle.addEventListener('click', toggleChat);
+        closeChat.addEventListener('click', toggleChat);
+
+        // Demo send message functionality
+        const chatInput = document.getElementById('chat-input');
+        const sendMessage = document.getElementById('send-message');
+        const chatMessages = document.querySelector('.chat-messages');
+
+        sendMessage.addEventListener('click', () => {
+            const message = chatInput.value.trim();
+            if (message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'bg-dark-300 p-2 rounded-lg';
+                messageElement.innerHTML = `<span class="text-purple-400 font-semibold">You:</span> ${message}`;
+                chatMessages.appendChild(messageElement);
+                chatInput.value = '';
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+
+        // Allow sending message with Enter key
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage.click();
+            }
+        });
+    </script>
 </body>
 </html>

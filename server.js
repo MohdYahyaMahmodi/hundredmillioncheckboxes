@@ -14,11 +14,21 @@ app.get('/', (req, res) => {
 });
 
 const checkedBoxes = new Set();
+const users = new Map();
+
+function generateUserId() {
+  return Math.random().toString(36).substr(2, 4).toUpperCase();
+}
 
 io.on('connection', (socket) => {
   console.log('A user connected');
+  const userId = generateUserId();
+  users.set(socket.id, userId);
 
-  socket.emit('initial state', Array.from(checkedBoxes));
+  socket.on('get initial state', () => {
+    console.log('Sending initial state');
+    socket.emit('initial state', Array.from(checkedBoxes));
+  });
 
   socket.on('checkbox update', (data) => {
     const { index, checked } = data;
@@ -28,6 +38,7 @@ io.on('connection', (socket) => {
       } else {
         checkedBoxes.delete(index);
       }
+      console.log(`Checkbox ${index} ${checked ? 'checked' : 'unchecked'}`);
       socket.broadcast.emit('checkbox update', data);
     }
   });
@@ -38,8 +49,14 @@ io.on('connection', (socket) => {
     socket.emit('checkbox range', requestedCheckboxes);
   });
 
+  socket.on('chat message', (message) => {
+    const userId = users.get(socket.id);
+    socket.broadcast.emit('chat message', { userId, message });
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected');
+    users.delete(socket.id);
   });
 });
 

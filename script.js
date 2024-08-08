@@ -1,22 +1,26 @@
 // Constants
-const TOTAL_CHECKBOXES = 1000000;
-const CHECKBOX_SIZE = 24;
+const TOTAL_CHECKBOXES = 10000000;
+const CHECKBOX_SIZE = 40;
 const CHECKBOX_MARGIN = 6;
 const TOTAL_CHECKBOX_SIZE = CHECKBOX_SIZE + CHECKBOX_MARGIN;
 const GRID_PADDING = 20;
 const GRID_INNER_PADDING_LEFT = 12;
 const GRID_INNER_PADDING_RIGHT = 0;
-const VIEWPORT_BUFFER = 2;
+const VIEWPORT_BUFFER = 3;
 
 // DOM Elements
 const checkboxContainer = document.getElementById('checkbox-container');
 const checkboxGrid = document.getElementById('checkbox-grid');
-const countElement = document.getElementById('count');
+const totalCountElement = document.getElementById('total-count');
+const userCountElement = document.getElementById('user-count');
+const progressCircle = document.getElementById('progress-circle');
+const progressPercentage = document.getElementById('progress-percentage');
 const checkboxSearch = document.getElementById('checkbox-search');
 const searchButton = document.getElementById('search-button');
 
 // State
 let checkedBoxes = new Set();
+let userCheckedBoxes = new Set();
 let columnsPerRow = 0;
 let totalRows = 0;
 let visibleStartRow = 0;
@@ -26,8 +30,18 @@ let visibleEndRow = 0;
 const socket = io();
 
 function updateCheckedCount() {
-    countElement.textContent = checkedBoxes.size;
-    if (checkedBoxes.size === TOTAL_CHECKBOXES) {
+    const totalChecked = checkedBoxes.size;
+    const userChecked = userCheckedBoxes.size;
+    
+    totalCountElement.textContent = totalChecked;
+    userCountElement.textContent = userChecked;
+    
+    const percentage = (totalChecked / TOTAL_CHECKBOXES) * 100;
+    const circumference = 2 * Math.PI * 15.9155; // radius of the circle
+    progressCircle.style.strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
+    progressPercentage.textContent = `${percentage.toFixed(2)}%`;
+
+    if (totalChecked === TOTAL_CHECKBOXES) {
         alert("YOU DID IT! ALL THE BOXES ARE CHECKED! 🎉");
     }
 }
@@ -59,8 +73,10 @@ function createCheckboxElement(index) {
         socket.emit('checkbox update', { index, checked });
         if (checked) {
             checkedBoxes.add(index);
+            userCheckedBoxes.add(index);
         } else {
             checkedBoxes.delete(index);
+            userCheckedBoxes.delete(index);
         }
         updateCheckedCount();
     });
@@ -137,8 +153,8 @@ searchButton.addEventListener('click', () => {
 
 // Socket event handlers
 socket.on('connect', () => {
-    calculateGridDimensions();
-    updateVisibleRows();
+    console.log('Connected to server');
+    socket.emit('get initial state');
 });
 
 socket.on('checkbox update', ({ index, checked }) => {
@@ -156,6 +172,7 @@ socket.on('checkbox update', ({ index, checked }) => {
 });
 
 socket.on('initial state', (initialCheckedBoxes) => {
+    console.log('Received initial state');
     checkedBoxes = new Set(initialCheckedBoxes);
     updateCheckedCount();
     calculateGridDimensions();
@@ -164,6 +181,56 @@ socket.on('initial state', (initialCheckedBoxes) => {
 
 // Initial setup
 window.addEventListener('load', () => {
+    console.log('Page loaded');
     calculateGridDimensions();
     updateVisibleRows();
 });
+
+// Chat functionality
+const chatWidget = document.getElementById('chat-widget');
+const chatToggle = document.getElementById('chat-toggle');
+const closeChat = document.getElementById('close-chat');
+const chatInput = document.getElementById('chat-input');
+const sendMessage = document.getElementById('send-message');
+const chatMessages = document.querySelector('.chat-messages');
+
+let isChatOpen = false;
+
+function toggleChat() {
+    isChatOpen = !isChatOpen;
+    chatWidget.style.left = isChatOpen ? '0px' : '-300px';
+    chatToggle.style.display = isChatOpen ? 'none' : 'block';
+}
+
+chatToggle.addEventListener('click', toggleChat);
+closeChat.addEventListener('click', toggleChat);
+
+function addChatMessage(userId, message, isOwnMessage = false) {
+    const messageElement = document.createElement('div');
+    messageElement.className = 'bg-dark-300 p-2 rounded-lg';
+    messageElement.innerHTML = `<span class="text-${isOwnMessage ? 'purple' : 'blue'}-400 font-semibold">${isOwnMessage ? 'You' : userId}:</span> ${message}`;
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+sendMessage.addEventListener('click', () => {
+    const message = chatInput.value.trim();
+    if (message) {
+        socket.emit('chat message', message);
+        addChatMessage('You', message, true);
+        chatInput.value = '';
+    }
+});
+
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        sendMessage.click();
+    }
+});
+
+socket.on('chat message', ({ userId, message }) => {
+    addChatMessage(userId, message, false);
+});
+
+// Clear example messages
+chatMessages.innerHTML = '';
