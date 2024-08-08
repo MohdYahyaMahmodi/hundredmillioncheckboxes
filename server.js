@@ -6,6 +6,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const TOTAL_CHECKBOXES = 1000000;
+const MAX_MESSAGE_LENGTH = 100;
 
 app.use(express.static(__dirname));
 
@@ -50,8 +51,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat message', (message) => {
-    const userId = users.get(socket.id);
-    socket.broadcast.emit('chat message', { userId, message });
+    if (message.length <= MAX_MESSAGE_LENGTH) {
+      const userId = users.get(socket.id);
+      socket.broadcast.emit('chat message', { userId, message });
+    } else {
+      socket.emit('chat error', 'Message exceeds maximum length of 100 characters');
+    }
   });
 
   socket.on('disconnect', () => {

@@ -1,5 +1,5 @@
 // Constants
-const TOTAL_CHECKBOXES = 10000000;
+const TOTAL_CHECKBOXES = 1000000;
 const CHECKBOX_SIZE = 40;
 const CHECKBOX_MARGIN = 6;
 const TOTAL_CHECKBOX_SIZE = CHECKBOX_SIZE + CHECKBOX_MARGIN;
@@ -7,6 +7,7 @@ const GRID_PADDING = 20;
 const GRID_INNER_PADDING_LEFT = 12;
 const GRID_INNER_PADDING_RIGHT = 0;
 const VIEWPORT_BUFFER = 3;
+const MAX_MESSAGE_LENGTH = 100;
 
 // DOM Elements
 const checkboxContainer = document.getElementById('checkbox-container');
@@ -174,9 +175,10 @@ socket.on('checkbox update', ({ index, checked }) => {
 socket.on('initial state', (initialCheckedBoxes) => {
     console.log('Received initial state');
     checkedBoxes = new Set(initialCheckedBoxes);
-    updateCheckedCount();
     calculateGridDimensions();
     updateVisibleRows();
+    renderVisibleCheckboxes();
+    updateCheckedCount();
 });
 
 // Initial setup
@@ -184,6 +186,7 @@ window.addEventListener('load', () => {
     console.log('Page loaded');
     calculateGridDimensions();
     updateVisibleRows();
+    renderVisibleCheckboxes();
 });
 
 // Chat functionality
@@ -215,6 +218,10 @@ function addChatMessage(userId, message, isOwnMessage = false) {
 
 sendMessage.addEventListener('click', () => {
     const message = chatInput.value.trim();
+    if (message.length > MAX_MESSAGE_LENGTH) {
+        alert(`Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters.`);
+        return;
+    }
     if (message) {
         socket.emit('chat message', message);
         addChatMessage('You', message, true);
@@ -230,6 +237,10 @@ chatInput.addEventListener('keypress', (e) => {
 
 socket.on('chat message', ({ userId, message }) => {
     addChatMessage(userId, message, false);
+});
+
+socket.on('chat error', (error) => {
+    alert(error);
 });
 
 // Clear example messages
