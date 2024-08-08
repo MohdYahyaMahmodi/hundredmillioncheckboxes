@@ -241,21 +241,25 @@ let isChatOpen = false;
 
 function toggleChat() {
     isChatOpen = !isChatOpen;
-    if (window.innerWidth <= 640) {
-        chatWidget.style.left = isChatOpen ? '0' : '-100%';
-    } else {
-        chatWidget.style.left = isChatOpen ? '0' : '-300px';
-    }
+    updateChatPosition();
     chatToggle.style.display = isChatOpen ? 'none' : 'block';
     if (isChatOpen) {
         chatInput.focus();
     }
 }
 
-function closeChatOnMobile() {
+function updateChatPosition() {
     if (window.innerWidth <= 640) {
-        toggleChat();
+        chatWidget.style.left = isChatOpen ? '0' : '-100%';
+    } else {
+        chatWidget.style.left = isChatOpen ? '0' : '-300px';
     }
+}
+
+function closeChatOnMobile() {
+    isChatOpen = false;
+    updateChatPosition();
+    chatToggle.style.display = 'block';
 }
 
 chatToggle.addEventListener('click', toggleChat);
@@ -300,13 +304,7 @@ socket.on('chat error', (error) => {
 chatMessages.innerHTML = '';
 
 // Handle window resize for mobile responsiveness
-window.addEventListener('resize', () => {
-    if (window.innerWidth <= 640) {
-        chatWidget.style.left = isChatOpen ? '0' : '-100%';
-    } else {
-        chatWidget.style.left = isChatOpen ? '0' : '-300px';
-    }
-});
+window.addEventListener('resize', updateChatPosition);
 
 // Prevent zooming on input focus for mobile devices
 document.addEventListener('touchstart', (event) => {
