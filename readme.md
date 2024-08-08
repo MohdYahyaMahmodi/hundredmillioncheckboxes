@@ -1,7 +1,5 @@
 # One Hundred Million Checkboxes
 
-![One Hundred Million Checkboxes](https://your-image-url-here.com)
-
 A real-time, interactive web application that renders 100 million checkboxes, allowing multiple users to check and uncheck boxes simultaneously. This project demonstrates efficient rendering techniques, real-time updates, and scalable architecture.
 
 ## Table of Contents
