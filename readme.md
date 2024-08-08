@@ -105,4 +105,4 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ---
 
-Created by [Mohd Mahmodi](https://github.com/mohdmahmodi) - feel free to contact me!
+Created by [Mohd Mahmodi](https://github.com/MohdYahyaMahmodi/) - feel free to contact me!
