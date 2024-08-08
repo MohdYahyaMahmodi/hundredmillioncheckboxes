@@ -5,8 +5,9 @@ const io = require('socket.io')(http);
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const TOTAL_CHECKBOXES = 1000000;
+const TOTAL_CHECKBOXES = 100000000; // 100 million
 const MAX_MESSAGE_LENGTH = 100;
+const CHUNK_SIZE = 1000000; // 1 million checkboxes per chunk
 
 app.use(express.static(__dirname));
 
@@ -28,7 +29,18 @@ io.on('connection', (socket) => {
 
   socket.on('get initial state', () => {
     console.log('Sending initial state');
-    socket.emit('initial state', Array.from(checkedBoxes));
+    socket.emit('initial state', {
+      totalChecked: checkedBoxes.size,
+      totalCheckboxes: TOTAL_CHECKBOXES,
+      checkedBoxes: Array.from(checkedBoxes)
+    });
+  });
+
+  socket.on('request checkbox chunk', (chunkIndex) => {
+    const start = chunkIndex * CHUNK_SIZE;
+    const end = Math.min((chunkIndex + 1) * CHUNK_SIZE, TOTAL_CHECKBOXES);
+    const chunkCheckedBoxes = Array.from(checkedBoxes).filter(index => index >= start && index < end);
+    socket.emit('checkbox chunk', { chunkIndex, checkedBoxes: chunkCheckedBoxes });
   });
 
   socket.on('checkbox update', (data) => {
@@ -40,14 +52,8 @@ io.on('connection', (socket) => {
         checkedBoxes.delete(index);
       }
       console.log(`Checkbox ${index} ${checked ? 'checked' : 'unchecked'}`);
-      socket.broadcast.emit('checkbox update', data);
+      io.emit('checkbox update', { index, checked, totalChecked: checkedBoxes.size });
     }
-  });
-
-  socket.on('request checkboxes', (range) => {
-    const { start, end } = range;
-    const requestedCheckboxes = Array.from(checkedBoxes).filter(index => index >= start && index < end);
-    socket.emit('checkbox range', requestedCheckboxes);
   });
 
   socket.on('chat message', (message) => {

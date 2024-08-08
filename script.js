@@ -1,13 +1,15 @@
 // Constants
-const TOTAL_CHECKBOXES = 1000000;
-const CHECKBOX_SIZE = 40;
-const CHECKBOX_MARGIN = 6;
+const TOTAL_CHECKBOXES = 100000000; // 100 million
+const CHECKBOX_SIZE = 22;
+const CHECKBOX_MARGIN = 2;
 const TOTAL_CHECKBOX_SIZE = CHECKBOX_SIZE + CHECKBOX_MARGIN;
-const GRID_PADDING = 20;
+const GRID_PADDING = 5;
 const GRID_INNER_PADDING_LEFT = 12;
-const GRID_INNER_PADDING_RIGHT = 0;
-const VIEWPORT_BUFFER = 3;
+const GRID_INNER_PADDING_RIGHT = 18;
+const VIEWPORT_BUFFER = 1;
 const MAX_MESSAGE_LENGTH = 100;
+const RENDER_CHUNK_SIZE = 100;
+const SERVER_CHUNK_SIZE = 1000000; // 1 million checkboxes per server chunk
 
 // DOM Elements
 const checkboxContainer = document.getElementById('checkbox-container');
@@ -26,12 +28,13 @@ let columnsPerRow = 0;
 let totalRows = 0;
 let visibleStartRow = 0;
 let visibleEndRow = 0;
+let totalCheckedBoxes = 0;
 
 // Socket connection
 const socket = io();
 
-function updateCheckedCount() {
-    const totalChecked = checkedBoxes.size;
+function updateCheckedCount(totalChecked) {
+    totalCheckedBoxes = totalChecked;
     const userChecked = userCheckedBoxes.size;
     
     totalCountElement.textContent = totalChecked;
@@ -51,8 +54,15 @@ function calculateGridDimensions() {
     const containerWidth = checkboxContainer.clientWidth - (GRID_PADDING + GRID_INNER_PADDING_LEFT + GRID_INNER_PADDING_RIGHT);
     columnsPerRow = Math.floor(containerWidth / TOTAL_CHECKBOX_SIZE);
     totalRows = Math.ceil(TOTAL_CHECKBOXES / columnsPerRow);
-    checkboxGrid.style.height = `${totalRows * TOTAL_CHECKBOX_SIZE + 2 * GRID_INNER_PADDING_LEFT}px`;
-    checkboxGrid.style.width = `${columnsPerRow * TOTAL_CHECKBOX_SIZE + GRID_INNER_PADDING_LEFT + GRID_INNER_PADDING_RIGHT}px`;
+    
+    const totalHeight = totalRows * TOTAL_CHECKBOX_SIZE + 2 * GRID_INNER_PADDING_LEFT;
+    const totalWidth = columnsPerRow * TOTAL_CHECKBOX_SIZE + GRID_INNER_PADDING_LEFT + GRID_INNER_PADDING_RIGHT;
+    
+    checkboxGrid.style.height = `${totalHeight}px`;
+    checkboxGrid.style.width = `${totalWidth}px`;
+
+    console.log(`Grid dimensions: ${columnsPerRow} columns, ${totalRows} rows`);
+    console.log(`Grid size: ${totalWidth}px x ${totalHeight}px`);
 }
 
 function createCheckboxElement(index) {
@@ -66,8 +76,12 @@ function createCheckboxElement(index) {
 
     const row = Math.floor(index / columnsPerRow);
     const col = index % columnsPerRow;
-    checkbox.style.top = `${row * TOTAL_CHECKBOX_SIZE + GRID_INNER_PADDING_LEFT}px`;
-    checkbox.style.left = `${col * TOTAL_CHECKBOX_SIZE + GRID_INNER_PADDING_LEFT}px`;
+    
+    const top = row * TOTAL_CHECKBOX_SIZE + GRID_INNER_PADDING_LEFT;
+    const left = col * TOTAL_CHECKBOX_SIZE + GRID_INNER_PADDING_LEFT;
+    
+    checkbox.style.transform = `translate(${left}px, ${top}px)`;
+    checkbox.style.position = 'absolute';
 
     checkbox.addEventListener('change', (e) => {
         const checked = e.target.checked;
@@ -79,7 +93,7 @@ function createCheckboxElement(index) {
             checkedBoxes.delete(index);
             userCheckedBoxes.delete(index);
         }
-        updateCheckedCount();
+        updateCheckedCount(totalCheckedBoxes + (checked ? 1 : -1));
     });
 
     return checkbox;
@@ -90,7 +104,6 @@ function renderVisibleCheckboxes() {
     const startIndex = visibleStartRow * columnsPerRow;
     const endIndex = Math.min((visibleEndRow + 1) * columnsPerRow, TOTAL_CHECKBOXES);
 
-    // Remove checkboxes that are no longer visible
     const children = Array.from(checkboxGrid.children);
     children.forEach(child => {
         const index = parseInt(child.id.split('-')[1]);
@@ -99,22 +112,37 @@ function renderVisibleCheckboxes() {
         }
     });
 
-    // Add new visible checkboxes
-    for (let i = startIndex; i < endIndex; i++) {
-        if (!document.getElementById(`cb-${i}`)) {
-            fragment.appendChild(createCheckboxElement(i));
+    let currentIndex = startIndex;
+    function renderChunk() {
+        const chunkEndIndex = Math.min(currentIndex + RENDER_CHUNK_SIZE, endIndex);
+        for (let i = currentIndex; i < chunkEndIndex; i++) {
+            if (!document.getElementById(`cb-${i}`)) {
+                fragment.appendChild(createCheckboxElement(i));
+            }
+        }
+        checkboxGrid.appendChild(fragment);
+        currentIndex = chunkEndIndex;
+
+        if (currentIndex < endIndex) {
+            requestAnimationFrame(renderChunk);
         }
     }
+    renderChunk();
 
-    checkboxGrid.appendChild(fragment);
+    // Request checkbox state for visible range
+    const startChunk = Math.floor(startIndex / SERVER_CHUNK_SIZE);
+    const endChunk = Math.floor((endIndex - 1) / SERVER_CHUNK_SIZE);
+    for (let i = startChunk; i <= endChunk; i++) {
+        socket.emit('request checkbox chunk', i);
+    }
 }
 
 function updateVisibleRows() {
     const scrollTop = checkboxContainer.scrollTop;
-    visibleStartRow = Math.floor((scrollTop - GRID_INNER_PADDING_LEFT) / TOTAL_CHECKBOX_SIZE) - VIEWPORT_BUFFER;
+    visibleStartRow = Math.floor(scrollTop / TOTAL_CHECKBOX_SIZE) - VIEWPORT_BUFFER;
     visibleStartRow = Math.max(0, visibleStartRow);
     const viewportHeight = checkboxContainer.clientHeight;
-    const visibleRows = Math.ceil((viewportHeight + 2 * GRID_INNER_PADDING_LEFT) / TOTAL_CHECKBOX_SIZE) + 2 * VIEWPORT_BUFFER;
+    const visibleRows = Math.ceil(viewportHeight / TOTAL_CHECKBOX_SIZE) + 2 * VIEWPORT_BUFFER;
     visibleEndRow = Math.min(visibleStartRow + visibleRows, totalRows - 1);
 
     renderVisibleCheckboxes();
@@ -137,13 +165,14 @@ searchButton.addEventListener('click', () => {
     const searchIndex = parseInt(checkboxSearch.value) - 1;
     if (searchIndex >= 0 && searchIndex < TOTAL_CHECKBOXES) {
         const targetRow = Math.floor(searchIndex / columnsPerRow);
-        checkboxContainer.scrollTop = targetRow * TOTAL_CHECKBOX_SIZE - GRID_INNER_PADDING_LEFT;
+        checkboxContainer.scrollTop = targetRow * TOTAL_CHECKBOX_SIZE;
         updateVisibleRows();
         
         setTimeout(() => {
             const checkbox = document.getElementById(`cb-${searchIndex}`);
             if (checkbox) {
                 checkbox.classList.add('highlight');
+                checkbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 setTimeout(() => checkbox.classList.remove('highlight'), 2000);
             }
         }, 100);
@@ -158,13 +187,13 @@ socket.on('connect', () => {
     socket.emit('get initial state');
 });
 
-socket.on('checkbox update', ({ index, checked }) => {
+socket.on('checkbox update', ({ index, checked, totalChecked }) => {
     if (checked) {
         checkedBoxes.add(index);
     } else {
         checkedBoxes.delete(index);
     }
-    updateCheckedCount();
+    updateCheckedCount(totalChecked);
     
     const checkbox = document.getElementById(`cb-${index}`);
     if (checkbox) {
@@ -172,13 +201,25 @@ socket.on('checkbox update', ({ index, checked }) => {
     }
 });
 
-socket.on('initial state', (initialCheckedBoxes) => {
+socket.on('initial state', ({ totalChecked, totalCheckboxes, checkedBoxes: initialCheckedBoxes }) => {
     console.log('Received initial state');
+    TOTAL_CHECKBOXES = totalCheckboxes;
     checkedBoxes = new Set(initialCheckedBoxes);
+    updateCheckedCount(totalChecked);
     calculateGridDimensions();
     updateVisibleRows();
-    renderVisibleCheckboxes();
-    updateCheckedCount();
+});
+
+socket.on('checkbox chunk', ({ chunkIndex, checkedBoxes: chunkCheckedBoxes }) => {
+    const startIndex = chunkIndex * SERVER_CHUNK_SIZE;
+    chunkCheckedBoxes.forEach(index => {
+        checkedBoxes.add(startIndex + index);
+        const checkbox = document.getElementById(`cb-${startIndex + index}`);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+    });
+    updateCheckedCount(checkedBoxes.size);
 });
 
 // Initial setup
@@ -186,7 +227,6 @@ window.addEventListener('load', () => {
     console.log('Page loaded');
     calculateGridDimensions();
     updateVisibleRows();
-    renderVisibleCheckboxes();
 });
 
 // Chat functionality
@@ -201,12 +241,25 @@ let isChatOpen = false;
 
 function toggleChat() {
     isChatOpen = !isChatOpen;
-    chatWidget.style.left = isChatOpen ? '0px' : '-300px';
+    if (window.innerWidth <= 640) {
+        chatWidget.style.left = isChatOpen ? '0' : '-100%';
+    } else {
+        chatWidget.style.left = isChatOpen ? '0' : '-300px';
+    }
     chatToggle.style.display = isChatOpen ? 'none' : 'block';
+    if (isChatOpen) {
+        chatInput.focus();
+    }
+}
+
+function closeChatOnMobile() {
+    if (window.innerWidth <= 640) {
+        toggleChat();
+    }
 }
 
 chatToggle.addEventListener('click', toggleChat);
-closeChat.addEventListener('click', toggleChat);
+closeChat.addEventListener('click', closeChatOnMobile);
 
 function addChatMessage(userId, message, isOwnMessage = false) {
     const messageElement = document.createElement('div');
@@ -245,3 +298,28 @@ socket.on('chat error', (error) => {
 
 // Clear example messages
 chatMessages.innerHTML = '';
+
+// Handle window resize for mobile responsiveness
+window.addEventListener('resize', () => {
+    if (window.innerWidth <= 640) {
+        chatWidget.style.left = isChatOpen ? '0' : '-100%';
+    } else {
+        chatWidget.style.left = isChatOpen ? '0' : '-300px';
+    }
+});
+
+// Prevent zooming on input focus for mobile devices
+document.addEventListener('touchstart', (event) => {
+    if (event.touches.length > 1) {
+        event.preventDefault();
+    }
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (event) => {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+    }
+    lastTouchEnd = now;
+}, false);
