@@ -158,4 +158,4 @@ One Hundred Million Checkboxes showcases advanced web development techniques, pu
 
 ---
 
-Created by [Mohd Yahya Mahmodi](https://github.com/MohdYahyaMahmodi)
+Created by [Mohd Yahya Mahmodi](https://x.com/MohdMahmodi)
