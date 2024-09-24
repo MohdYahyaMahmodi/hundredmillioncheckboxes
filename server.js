@@ -5,7 +5,7 @@ const io = require('socket.io')(http);
 const path = require('path');
 
 // Configuration constants
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const TOTAL_CHECKBOXES = 100000000; // 100 million
 const MAX_MESSAGE_LENGTH = 100;
 const CHUNK_SIZE = 1000000; // 1 million checkboxes per chunk
